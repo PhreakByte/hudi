@@ -53,7 +53,6 @@ public class TableService implements Serializable {
     if (table == null) {
       throw new NoSuchObjectException(db + "." + tb + " does not exist");
     }
-    // todo: add params
     table.setTableType(HoodieTableType.COPY_ON_WRITE.toString());
     return table;
   }
@@ -70,7 +69,6 @@ public class TableService implements Serializable {
     if (!store.createTable(dbId, table)) {
       throw new MetaserverException("Fail to create the table: " + table);
     }
-    // todo: add params
   }
 
   private boolean databaseExists(String db) throws MetaserverStorageException {

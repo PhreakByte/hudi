@@ -89,7 +89,15 @@ public class RelationalDBBasedStorage implements MetaserverStorage, Serializable
     params.put("dbId", dbId);
     TableBean tableBean = new TableBean(table);
     params.put("tableBean", tableBean);
-    return tableDao.insertBySql("insertTable", params) == 1;
+    boolean success = tableDao.insertBySql("insertTable", params) == 1;
+    if (success && table.getParameters() != null && !table.getParameters().isEmpty()) {
+      Long tblId = ((Number) params.get("tbl_id")).longValue();
+      Map<String, Object> paramsMap = new HashMap<>();
+      paramsMap.put("tblId", tblId);
+      paramsMap.put("parameters", table.getParameters());
+      tableDao.insertBySql("insertTableParams", paramsMap);
+    }
+    return success;
   }
 
   @Override
@@ -97,9 +105,20 @@ public class RelationalDBBasedStorage implements MetaserverStorage, Serializable
     Map<String, Object> params = new HashMap<>();
     params.put("databaseName", db);
     params.put("tableName", tb);
-    List<TableBean> table = tableDao.queryForListBySql("selectTable", params);
-    validate(table, "table " + db + "." + tb);
-    return table.isEmpty() ? null : table.get(0).toTable();
+    List<TableBean> tableBeans = tableDao.queryForListBySql("selectTable", params);
+    validate(tableBeans, "table " + db + "." + tb);
+    if (tableBeans.isEmpty()) {
+      return null;
+    }
+    TableBean tableBean = tableBeans.get(0);
+    Table table = tableBean.toTable();
+    List<Map<String, Object>> parameters = tableDao.queryForListBySql("selectTableParams", tableBean.getTblId());
+    Map<String, String> paramsMap = new HashMap<>();
+    for (Map<String, Object> entry : parameters) {
+      paramsMap.put((String) entry.get("param_key"), (String) entry.get("param_value"));
+    }
+    table.setParameters(paramsMap);
+    return table;
   }
 
   @Override

@@ -73,4 +73,18 @@
             tbl_id = #{tableId}
     </delete>
 
+    <insert id="insertTableParams" parameterType="java.util.Map">
+        INSERT INTO tbl_params (tbl_id, param_key, param_value)
+        VALUES
+        <foreach collection="parameters.entrySet()" item="entry" separator=",">
+            (#{tblId}, #{entry.key}, #{entry.value})
+        </foreach>
+    </insert>
+
+    <select id="selectTableParams" parameterType="java.lang.Long" resultType="java.util.Map">
+        SELECT param_key, param_value
+        FROM tbl_params
+        WHERE tbl_id = #{tableId}
+    </select>
+
 </mapper>
