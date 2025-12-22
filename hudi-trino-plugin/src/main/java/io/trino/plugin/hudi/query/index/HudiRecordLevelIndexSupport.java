@@ -93,7 +93,7 @@ public class HudiRecordLevelIndexSupport
                 log.debug(String.format("Constructed %d record keys for index lookup.", recordKeys.size()));
 
                 // Perform index lookup in metadataTable
-                // TODO: document here what this map is keyed by
+                // The map is keyed by the record key.
                 Map<String, HoodieRecordGlobalLocation> recordIndex = lazyTableMetadata.get().readRecordIndex(recordKeys);
                 if (recordIndex.isEmpty()) {
                     log.debug("Record level index lookup took %s ms but returned no locations for the given keys %s for table %s",
