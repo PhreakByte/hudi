@@ -18,6 +18,14 @@
  namespace java org.apache.hudi.metaserver.thrift
 
  // table related
+ struct Database {
+   1: string name,
+   2: string description,
+   3: string location,
+   4: string owner,
+   5: map<string, string> parameters
+ }
+
  struct Table {
    1: string tableName,
    2: string databaseName,
@@ -86,7 +94,7 @@ exception AlreadyExistException {
 
 service ThriftHoodieMetaserver {
   // table related
-  void createDatabase(1:string db) throws (1:MetaserverStorageException o1, 2:NoSuchObjectException o2, 3:AlreadyExistException o3)
+  void createDatabase(1:Database db) throws (1:MetaserverStorageException o1, 2:NoSuchObjectException o2, 3:AlreadyExistException o3)
   void createTable(1:Table table) throws (1:MetaserverStorageException o1, 2:NoSuchObjectException o2, 3:AlreadyExistException o3, 4:MetaserverException o4)
   Table getTable(1:string db, 2:string tb) throws (1:MetaserverStorageException o1, 2:NoSuchObjectException o2)
 

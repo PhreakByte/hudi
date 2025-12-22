@@ -21,6 +21,7 @@ package org.apache.hudi.metaserver.service;
 import org.apache.hudi.common.model.HoodieTableType;
 import org.apache.hudi.metaserver.store.MetaserverStorage;
 import org.apache.hudi.metaserver.thrift.AlreadyExistException;
+import org.apache.hudi.metaserver.thrift.Database;
 import org.apache.hudi.metaserver.thrift.MetaserverException;
 import org.apache.hudi.metaserver.thrift.MetaserverStorageException;
 import org.apache.hudi.metaserver.thrift.NoSuchObjectException;
@@ -38,13 +39,13 @@ public class TableService implements Serializable {
     this.store = metaserverStorage;
   }
 
-  public void createDatabase(String db) throws AlreadyExistException, MetaserverStorageException, MetaserverException {
-    // todo: define the database entry in the thrift
-    if (databaseExists(db)) {
-      throw new AlreadyExistException("Database " + db + " already exists");
+  public void createDatabase(Database db) throws AlreadyExistException, MetaserverStorageException, MetaserverException {
+    String dbName = db.getName();
+    if (databaseExists(dbName)) {
+      throw new AlreadyExistException("Database " + dbName + " already exists");
     }
-    if (!store.createDatabase(db)) {
-      throw new MetaserverException("Fail to create the database: " + db);
+    if (!store.createDatabase(dbName)) {
+      throw new MetaserverException("Fail to create the database: " + dbName);
     }
   }
 
@@ -61,7 +62,9 @@ public class TableService implements Serializable {
   public void createTable(Table table) throws MetaserverStorageException, NoSuchObjectException, AlreadyExistException, MetaserverException {
     Long dbId = store.getDatabaseId(table.getDatabaseName());
     if (dbId == null) {
-      createDatabase(table.getDatabaseName());
+      Database db = new Database();
+      db.setName(table.getDatabaseName());
+      createDatabase(db);
       dbId = store.getDatabaseId(table.getDatabaseName());
     }
     if (tableExists(table.getDatabaseName(), table.getTableName())) {

@@ -19,6 +19,7 @@
 package org.apache.hudi.metaserver.service;
 
 import org.apache.hudi.metaserver.thrift.AlreadyExistException;
+import org.apache.hudi.metaserver.thrift.Database;
 import org.apache.hudi.metaserver.thrift.HoodieInstantChangeResult;
 import org.apache.hudi.metaserver.thrift.MetaserverException;
 import org.apache.hudi.metaserver.thrift.MetaserverStorageException;
@@ -44,7 +45,7 @@ public class HoodieMetaserverGateway implements ThriftHoodieMetaserver.Iface, Se
   }
 
   @Override
-  public void createDatabase(String db) throws AlreadyExistException, MetaserverStorageException, MetaserverException {
+  public void createDatabase(Database db) throws AlreadyExistException, MetaserverStorageException, MetaserverException {
     tableService.createDatabase(db);
   }
 
