@@ -166,12 +166,9 @@ public class HudiTrinoReaderContext
     @Override
     public IndexedRecord seal(IndexedRecord record)
     {
-        // TODO: this can rely on colToPos map directly instead of schema
         Schema schema = record.getSchema();
         IndexedRecord newRecord = new Record(schema);
-        List<Schema.Field> fields = schema.getFields();
-        for (Schema.Field field : fields) {
-            int pos = schema.getField(field.name()).pos();
+        for (int pos : colToPosMap.values()) {
             newRecord.put(pos, record.get(pos));
         }
         return newRecord;
