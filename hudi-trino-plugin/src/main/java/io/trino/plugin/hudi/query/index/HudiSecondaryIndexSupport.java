@@ -84,7 +84,7 @@ public class HudiSecondaryIndexSupport
             log.debug(String.format("Constructed %d secondary keys for index lookup.", secondaryKeys.size()));
 
             // Perform index lookup in metadataTable
-            // TODO: document here what this map is keyed by
+            // The map is keyed by the record key.
             Map<String, HoodieRecordGlobalLocation> recordKeyLocationsMap = lazyTableMetadata.get().readSecondaryIndex(secondaryKeys, indexName);
             if (recordKeyLocationsMap.isEmpty()) {
                 log.debug("Took %s ms, but secondary index lookup returned no locations for the given keys for table %s", timer.endTimer(), schemaTableName);
