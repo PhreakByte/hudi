@@ -117,11 +117,6 @@ public class HudiTrinoReaderContext
             @Override
             public IndexedRecord next()
             {
-                if (!hasNext()) {
-                    // TODO: This can probably be removed or ignored, added this as a sanity check
-                    throw new RuntimeException("No more records in the iterator");
-                }
-
                 IndexedRecord record = avroSerializer.serialize(currentPage, currentPosition);
                 currentPosition++;
                 return record;
