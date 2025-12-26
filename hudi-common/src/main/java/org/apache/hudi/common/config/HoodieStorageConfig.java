@@ -212,11 +212,11 @@ public class HoodieStorageConfig extends HoodieConfig {
 
   public static final ConfigProperty<String> BLOOM_FILTER_FPP_VALUE = ConfigProperty
       .key("hoodie.index.bloom.fpp")
-      .defaultValue("0.000000001")
+      .defaultValue("0.000001")
       .markAdvanced()
       .withDocumentation("Only applies if index type is BLOOM. "
           + "Error rate allowed given the number of entries. This is used to calculate how many bits should be "
-          + "assigned for the bloom filter and the number of hash functions. This is usually set very low (default: 0.000000001), "
+          + "assigned for the bloom filter and the number of hash functions. This is usually set very low (default: 0.000001), "
           + "we like to tradeoff disk space for lower false positives. "
           + "If the number of entries added to bloom filter exceeds the configured value (hoodie.index.bloom.num_entries), "
           + "then this fpp may not be honored.");
