@@ -47,6 +47,7 @@ import org.apache.hudi.timeline.service.handlers.TimelineHandler;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.module.afterburner.AfterburnerModule;
 import io.javalin.Javalin;
 import io.javalin.http.BadRequestResponse;
@@ -58,6 +59,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.security.PrivilegedExceptionAction;
 import java.util.Arrays;
 import java.util.List;
@@ -138,6 +140,29 @@ public class RequestHandler {
     return result;
   }
 
+  /**
+   * Serializes the result into JSON and writes to the output stream.
+   *
+   * @param out             Output Stream
+   * @param obj             object to serialize
+   * @param metricsRegistry {@code Registry} instance for storing metrics
+   * @param prettyPrint     whether to pretty print the JSON
+   * @throws IOException
+   */
+  public static void jsonifyResultToStream(
+      OutputStream out, Object obj, Registry metricsRegistry, boolean prettyPrint)
+      throws IOException {
+    HoodieTimer timer = HoodieTimer.start();
+    ObjectWriter writer = prettyPrint ? OBJECT_MAPPER.writerWithDefaultPrettyPrinter() : OBJECT_MAPPER.writer();
+    writer.writeValue(out, obj);
+    final long jsonifyTime = timer.endTimer();
+    metricsRegistry.add("WRITE_VALUE_CNT", 1);
+    metricsRegistry.add("WRITE_VALUE_TIME", jsonifyTime);
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Jsonify To Stream TimeTaken={}", jsonifyTime);
+    }
+  }
+
   private static String getBasePathParam(Context ctx) {
     return ctx.queryParamAsClass(RemoteHoodieTableFileSystemView.BASEPATH_PARAM, String.class).getOrThrow(e -> new HoodieException("Basepath is invalid"));
   }
@@ -202,7 +227,7 @@ public class RequestHandler {
     }
   }
 
-  private void writeValueAsString(Context ctx, Object obj) throws JsonProcessingException {
+  private void writeValueAsString(Context ctx, Object obj) {
     if (timelineServiceConfig.async) {
       writeValueAsStringAsync(ctx, obj);
     } else {
@@ -210,16 +235,21 @@ public class RequestHandler {
     }
   }
 
-  private void writeValueAsStringSync(Context ctx, Object obj) throws JsonProcessingException {
-    String result = jsonifyResult(ctx, obj, metricsRegistry);
-    ctx.result(result);
+  private void writeValueAsStringSync(Context ctx, Object obj) {
+    try {
+      boolean prettyPrint = ctx.queryParam("pretty") != null;
+      jsonifyResultToStream(ctx.res.getOutputStream(), obj, metricsRegistry, prettyPrint);
+    } catch (IOException e) {
+      throw new HoodieException("Failed to JSON encode the value", e);
+    }
   }
 
   private void writeValueAsStringAsync(Context ctx, Object obj) {
-    ctx.future(CompletableFuture.supplyAsync(() -> {
+    ctx.future(CompletableFuture.runAsync(() -> {
       try {
-        return jsonifyResult(ctx, obj, metricsRegistry);
-      } catch (JsonProcessingException e) {
+        boolean prettyPrint = ctx.queryParam("pretty") != null;
+        jsonifyResultToStream(ctx.res.getOutputStream(), obj, metricsRegistry, prettyPrint);
+      } catch (IOException e) {
         throw new HoodieException("Failed to JSON encode the value", e);
       }
     }, asyncResultService));
