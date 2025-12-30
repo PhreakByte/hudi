@@ -292,14 +292,23 @@ public class HoodieIndexUtils {
     try (HoodieFileReader fileReader = HoodieIOFactory.getIOFactory(storage)
         .getReaderFactory(HoodieRecordType.AVRO)
         .getFileReader(DEFAULT_HUDI_CONFIG_FOR_READER, filePath)) {
+      return filterKeysFromFile(fileReader, candidateRecordKeys);
+    } catch (Exception e) {
+      throw new HoodieIndexException("Error checking candidate keys against file.", e);
+    }
+  }
+
+  public static List<Pair<String, Long>> filterKeysFromFile(HoodieFileReader fileReader,
+                                                            List<String> candidateRecordKeys) throws HoodieIndexException {
+    List<Pair<String, Long>> foundRecordKeys = new ArrayList<>();
+    try {
       // Load all rowKeys from the file, to double-confirm
       if (!candidateRecordKeys.isEmpty()) {
         HoodieTimer timer = HoodieTimer.start();
         Set<Pair<String, Long>> fileRowKeys = fileReader.filterRowKeys(candidateRecordKeys.stream().collect(Collectors.toSet()));
         foundRecordKeys.addAll(fileRowKeys);
-        log.info("Checked keys against file {}, in {} ms. #candidates ({}) #found ({})", filePath,
-            timer.endTimer(), candidateRecordKeys.size(), foundRecordKeys.size());
-        log.debug("Keys matching for file {} => {}", filePath, foundRecordKeys);
+        log.info("Checked keys against file {}, in {} ms. #candidates ({}) #found ({})",
+            fileReader.getRecordIterator().getClass().getSimpleName(), timer.endTimer(), candidateRecordKeys.size(), foundRecordKeys.size());
       }
     } catch (Exception e) {
       throw new HoodieIndexException("Error checking candidate keys against file.", e);
