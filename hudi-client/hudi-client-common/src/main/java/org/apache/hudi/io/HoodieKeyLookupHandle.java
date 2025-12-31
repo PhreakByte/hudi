@@ -30,7 +30,6 @@ import org.apache.hudi.table.HoodieTable;
 
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -45,6 +44,7 @@ public class HoodieKeyLookupHandle<T, I, K, O> extends HoodieReadHandle<T, I, K,
   private final BloomFilter bloomFilter;
   private final List<String> candidateRecordKeys;
   private long totalKeysChecked;
+  private HoodieFileReader fileReader;
 
   public HoodieKeyLookupHandle(HoodieWriteConfig config, HoodieTable<T, I, K, O> hoodieTable,
                                Pair<String, String> partitionPathFileIDPair) {
@@ -64,11 +64,21 @@ public class HoodieKeyLookupHandle<T, I, K, O> extends HoodieReadHandle<T, I, K,
         bloomFilter = hoodieTable.getTableMetadata().getBloomFilter(partitionPathFileIDPair.getLeft(), partitionPathFileIDPair.getRight())
             .orElseThrow(() -> new HoodieIndexException("BloomFilter missing for " + partitionPathFileIDPair.getRight()));
       } else {
-        try (HoodieFileReader reader = createNewFileReader()) {
-          bloomFilter = reader.readBloomFilter();
+        this.fileReader = createNewFileReader();
+        bloomFilter = this.fileReader.readBloomFilter();
+      }
+    } catch (Throwable e) {
+      if (this.fileReader != null) {
+        try {
+          this.fileReader.close();
+          this.fileReader = null;
+        } catch (Throwable ex) {
+          // ignore
         }
       }
-    } catch (IOException e) {
+      if (e instanceof RuntimeException) {
+        throw (RuntimeException) e;
+      }
       throw new HoodieIndexException(String.format("Error reading bloom filter from %s", getPartitionPathFileIDPair()), e);
     }
     log.info("Read bloom filter from {} in {} ms", partitionPathFileIDPair, timer.endTimer());
@@ -94,11 +104,32 @@ public class HoodieKeyLookupHandle<T, I, K, O> extends HoodieReadHandle<T, I, K,
     log.debug("#The candidate row keys for {} => {}", partitionPathFileIDPair, candidateRecordKeys);
 
     HoodieBaseFile baseFile = getLatestBaseFile();
-    List<Pair<String, Long>> matchingKeysAndPositions = HoodieIndexUtils.filterKeysFromFile(
-        baseFile.getStoragePath(), candidateRecordKeys, hoodieTable.getStorage());
+    List<Pair<String, Long>> matchingKeysAndPositions;
+    try {
+      if (this.fileReader != null) {
+        matchingKeysAndPositions = HoodieIndexUtils.filterKeysFromFile(
+            baseFile.getStoragePath(), candidateRecordKeys, this.fileReader);
+      } else {
+        matchingKeysAndPositions = HoodieIndexUtils.filterKeysFromFile(
+            baseFile.getStoragePath(), candidateRecordKeys, hoodieTable.getStorage());
+      }
+    } finally {
+      close();
+    }
     log.info("Total records ({}), bloom filter candidates ({})/fp({}), actual matches ({})", totalKeysChecked,
             candidateRecordKeys.size(), candidateRecordKeys.size() - matchingKeysAndPositions.size(), matchingKeysAndPositions.size());
     return new HoodieKeyLookupResult(partitionPathFileIDPair.getRight(), partitionPathFileIDPair.getLeft(),
         baseFile.getCommitTime(), matchingKeysAndPositions);
+  }
+
+  public void close() {
+    if (this.fileReader != null) {
+      try {
+        this.fileReader.close();
+        this.fileReader = null;
+      } catch (Throwable e) {
+        // ignore
+      }
+    }
   }
 }

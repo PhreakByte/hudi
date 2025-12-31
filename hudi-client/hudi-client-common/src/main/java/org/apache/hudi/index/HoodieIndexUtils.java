@@ -287,11 +287,29 @@ public class HoodieIndexUtils {
                                                             List<String> candidateRecordKeys,
                                                             HoodieStorage storage) throws HoodieIndexException {
     checkArgument(FSUtils.isBaseFile(filePath));
-    List<Pair<String, Long>> foundRecordKeys = new ArrayList<>();
-    log.info(String.format("Going to filter %d keys from file %s", candidateRecordKeys.size(), filePath));
     try (HoodieFileReader fileReader = HoodieIOFactory.getIOFactory(storage)
         .getReaderFactory(HoodieRecordType.AVRO)
         .getFileReader(DEFAULT_HUDI_CONFIG_FOR_READER, filePath)) {
+      return filterKeysFromFile(filePath, candidateRecordKeys, fileReader);
+    } catch (IOException e) {
+      throw new HoodieIndexException("Error checking candidate keys against file.", e);
+    }
+  }
+
+  /**
+   * Given a list of row keys and one file, return only row keys existing in that file.
+   *
+   * @param filePath            - File to filter keys from
+   * @param candidateRecordKeys - Candidate keys to filter
+   * @param fileReader          - File Reader to use
+   * @return List of pairs of candidate keys and positions that are available in the file
+   */
+  public static List<Pair<String, Long>> filterKeysFromFile(StoragePath filePath,
+                                                            List<String> candidateRecordKeys,
+                                                            HoodieFileReader fileReader) throws HoodieIndexException {
+    List<Pair<String, Long>> foundRecordKeys = new ArrayList<>();
+    log.info(String.format("Going to filter %d keys from file %s", candidateRecordKeys.size(), filePath));
+    try {
       // Load all rowKeys from the file, to double-confirm
       if (!candidateRecordKeys.isEmpty()) {
         HoodieTimer timer = HoodieTimer.start();

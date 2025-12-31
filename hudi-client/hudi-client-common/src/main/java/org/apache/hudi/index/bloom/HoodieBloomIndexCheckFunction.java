@@ -114,6 +114,10 @@ public class HoodieBloomIndexCheckFunction<I>
           ret.add(keyLookupHandle.getLookupResult());
         }
       } catch (Throwable e) {
+        if (keyLookupHandle != null) {
+          // close the handle if we are breaking out with an exception
+          keyLookupHandle.close();
+        }
         if (e instanceof HoodieException) {
           throw (HoodieException) e;
         }
