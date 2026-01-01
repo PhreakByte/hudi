@@ -287,11 +287,21 @@ public class HoodieIndexUtils {
                                                             List<String> candidateRecordKeys,
                                                             HoodieStorage storage) throws HoodieIndexException {
     checkArgument(FSUtils.isBaseFile(filePath));
-    List<Pair<String, Long>> foundRecordKeys = new ArrayList<>();
     log.info(String.format("Going to filter %d keys from file %s", candidateRecordKeys.size(), filePath));
     try (HoodieFileReader fileReader = HoodieIOFactory.getIOFactory(storage)
         .getReaderFactory(HoodieRecordType.AVRO)
         .getFileReader(DEFAULT_HUDI_CONFIG_FOR_READER, filePath)) {
+      return filterKeysFromFile(filePath, fileReader, candidateRecordKeys);
+    } catch (Exception e) {
+      throw new HoodieIndexException("Error checking candidate keys against file.", e);
+    }
+  }
+
+  public static List<Pair<String, Long>> filterKeysFromFile(StoragePath filePath,
+                                                            HoodieFileReader fileReader,
+                                                            List<String> candidateRecordKeys) throws HoodieIndexException {
+    List<Pair<String, Long>> foundRecordKeys = new ArrayList<>();
+    try {
       // Load all rowKeys from the file, to double-confirm
       if (!candidateRecordKeys.isEmpty()) {
         HoodieTimer timer = HoodieTimer.start();
