@@ -103,6 +103,7 @@ public class HoodieBloomIndexCheckFunction<I>
           } else {
             // do the actual checking of file & break out
             ret.add(keyLookupHandle.getLookupResult());
+            keyLookupHandle.close();
             keyLookupHandle = new HoodieKeyLookupHandle(config, hoodieTable, partitionPathFilePair);
             keyLookupHandle.addKey(recordKey);
             break;
@@ -112,6 +113,7 @@ public class HoodieBloomIndexCheckFunction<I>
         // handle case, where we ran out of input, close pending work, update return val
         if (!inputItr.hasNext()) {
           ret.add(keyLookupHandle.getLookupResult());
+          keyLookupHandle.close();
         }
       } catch (Throwable e) {
         if (e instanceof HoodieException) {

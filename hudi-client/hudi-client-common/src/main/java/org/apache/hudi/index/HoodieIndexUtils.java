@@ -308,6 +308,35 @@ public class HoodieIndexUtils {
   }
 
   /**
+   * Given a list of row keys and one file, return only row keys existing in that file.
+   *
+   * @param filePath            - File to filter keys from
+   * @param candidateRecordKeys - Candidate keys to filter
+   * @param fileReader          - File reader to use
+   * @return List of pairs of candidate keys and positions that are available in the file
+   */
+  public static List<Pair<String, Long>> filterKeysFromFile(StoragePath filePath,
+                                                            List<String> candidateRecordKeys,
+                                                            HoodieFileReader fileReader) throws HoodieIndexException {
+    checkArgument(FSUtils.isBaseFile(filePath));
+    List<Pair<String, Long>> foundRecordKeys = new ArrayList<>();
+    try {
+      // Load all rowKeys from the file, to double-confirm
+      if (!candidateRecordKeys.isEmpty()) {
+        HoodieTimer timer = HoodieTimer.start();
+        Set<Pair<String, Long>> fileRowKeys = fileReader.filterRowKeys(candidateRecordKeys.stream().collect(Collectors.toSet()));
+        foundRecordKeys.addAll(fileRowKeys);
+        log.info("Checked keys against file {}, in {} ms. #candidates ({}) #found ({})", filePath,
+            timer.endTimer(), candidateRecordKeys.size(), foundRecordKeys.size());
+        log.debug("Keys matching for file {} => {}", filePath, foundRecordKeys);
+      }
+    } catch (Exception e) {
+      throw new HoodieIndexException("Error checking candidate keys against file.", e);
+    }
+    return foundRecordKeys;
+  }
+
+  /**
    * Check if the given commit timestamp is valid for the timeline.
    * <p>
    * The commit timestamp is considered to be valid if:

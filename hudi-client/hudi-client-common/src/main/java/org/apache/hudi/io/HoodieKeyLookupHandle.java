@@ -40,11 +40,12 @@ import static org.apache.hudi.metadata.MetadataPartitionType.BLOOM_FILTERS;
  * Takes a bunch of keys and returns ones that are present in the file group.
  */
 @Slf4j
-public class HoodieKeyLookupHandle<T, I, K, O> extends HoodieReadHandle<T, I, K, O> {
+public class HoodieKeyLookupHandle<T, I, K, O> extends HoodieReadHandle<T, I, K, O> implements AutoCloseable {
 
   private final BloomFilter bloomFilter;
   private final List<String> candidateRecordKeys;
   private long totalKeysChecked;
+  private HoodieFileReader bloomFilterReader;
 
   public HoodieKeyLookupHandle(HoodieWriteConfig config, HoodieTable<T, I, K, O> hoodieTable,
                                Pair<String, String> partitionPathFileIDPair) {
@@ -64,11 +65,14 @@ public class HoodieKeyLookupHandle<T, I, K, O> extends HoodieReadHandle<T, I, K,
         bloomFilter = hoodieTable.getTableMetadata().getBloomFilter(partitionPathFileIDPair.getLeft(), partitionPathFileIDPair.getRight())
             .orElseThrow(() -> new HoodieIndexException("BloomFilter missing for " + partitionPathFileIDPair.getRight()));
       } else {
-        try (HoodieFileReader reader = createNewFileReader()) {
-          bloomFilter = reader.readBloomFilter();
-        }
+        this.bloomFilterReader = createNewFileReader();
+        bloomFilter = this.bloomFilterReader.readBloomFilter();
       }
     } catch (IOException e) {
+      if (this.bloomFilterReader != null) {
+        this.bloomFilterReader.close();
+        this.bloomFilterReader = null;
+      }
       throw new HoodieIndexException(String.format("Error reading bloom filter from %s", getPartitionPathFileIDPair()), e);
     }
     log.info("Read bloom filter from {} in {} ms", partitionPathFileIDPair, timer.endTimer());
@@ -94,11 +98,25 @@ public class HoodieKeyLookupHandle<T, I, K, O> extends HoodieReadHandle<T, I, K,
     log.debug("#The candidate row keys for {} => {}", partitionPathFileIDPair, candidateRecordKeys);
 
     HoodieBaseFile baseFile = getLatestBaseFile();
-    List<Pair<String, Long>> matchingKeysAndPositions = HoodieIndexUtils.filterKeysFromFile(
-        baseFile.getStoragePath(), candidateRecordKeys, hoodieTable.getStorage());
+    List<Pair<String, Long>> matchingKeysAndPositions;
+    if (bloomFilterReader != null) {
+      matchingKeysAndPositions = HoodieIndexUtils.filterKeysFromFile(
+          baseFile.getStoragePath(), candidateRecordKeys, bloomFilterReader);
+    } else {
+      matchingKeysAndPositions = HoodieIndexUtils.filterKeysFromFile(
+          baseFile.getStoragePath(), candidateRecordKeys, hoodieTable.getStorage());
+    }
     log.info("Total records ({}), bloom filter candidates ({})/fp({}), actual matches ({})", totalKeysChecked,
             candidateRecordKeys.size(), candidateRecordKeys.size() - matchingKeysAndPositions.size(), matchingKeysAndPositions.size());
     return new HoodieKeyLookupResult(partitionPathFileIDPair.getRight(), partitionPathFileIDPair.getLeft(),
         baseFile.getCommitTime(), matchingKeysAndPositions);
+  }
+
+  @Override
+  public void close() {
+    if (bloomFilterReader != null) {
+      bloomFilterReader.close();
+      bloomFilterReader = null;
+    }
   }
 }
