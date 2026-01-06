@@ -119,7 +119,7 @@ public class HoodieIndexConfig extends HoodieConfig {
 
   public static final ConfigProperty<Boolean> BLOOM_INDEX_USE_METADATA = ConfigProperty
       .key("hoodie.bloom.index.use.metadata")
-      .defaultValue(false)
+      .defaultValue(true)
       .markAdvanced()
       .sinceVersion("0.11.0")
       .withDocumentation("Only applies if index type is BLOOM."
